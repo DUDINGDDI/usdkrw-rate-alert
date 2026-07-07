@@ -3,11 +3,12 @@ import json
 import smtplib
 import requests
 from email.mime.text import MIMEText
-from datetime import date
+from datetime import date, datetime
 import yfinance as yf
 
 THRESHOLD_PERCENT = 0.5
 STATE_FILE = "last_rate.json"
+HISTORY_FILE = "rate_history.json"
 
 SENDER_EMAIL = os.environ["SENDER_EMAIL"]
 APP_PASSWORD = os.environ["APP_PASSWORD"]
@@ -39,6 +40,33 @@ def load_state():
 def save_state(state):
     with open(STATE_FILE, "w") as f:
         json.dump(state, f)
+
+
+def save_history(current, prev_close, change_pct):
+    """실행할 때마다 환율 기록을 rate_history.json에 계속 추가(누적) 저장"""
+    entry = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "current": round(float(current), 2),
+        "prev_close": round(float(prev_close), 2),
+        "change_pct": round(float(change_pct), 3),
+    }
+
+    history = []
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE) as f:
+                content = f.read().strip()
+                if content:
+                    history = json.loads(content)
+        except json.JSONDecodeError:
+            history = []
+
+    history.append(entry)
+
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2, ensure_ascii=False)
+
+    print(f"이력 저장 완료 (누적 {len(history)}건)")
 
 
 def send_alert_email(current, prev_close, change_pct):
@@ -79,6 +107,8 @@ def main():
     current, prev_close, change_pct = get_usdkrw()
     print(f"현재 {current:.2f}원 (전일대비 {change_pct:+.2f}%)")
 
+    save_history(current, prev_close, change_pct)
+
     send_alert_email(current, prev_close, change_pct)
     send_discord_alert(current, prev_close, change_pct)
     state["alerted_date"] = today_str
@@ -86,6 +116,7 @@ def main():
     save_state(state)
 
     # ===== 테스트 끝나면 아래로 교체 =====
+    # save_history(current, prev_close, change_pct)
     # if abs(change_pct) >= THRESHOLD_PERCENT and state.get("alerted_date") != today_str:
     #     send_alert_email(current, prev_close, change_pct)
     #     send_discord_alert(current, prev_close, change_pct)
