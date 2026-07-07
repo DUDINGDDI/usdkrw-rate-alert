@@ -1,8 +1,7 @@
 name: USD/KRW 환율 알림
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"  # UTC 기준, 한국시간 1분에 한번
+
   workflow_dispatch:            # 수동 실행 버튼도 추가
 
 jobs:
