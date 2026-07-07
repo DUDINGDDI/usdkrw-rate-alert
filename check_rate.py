@@ -60,10 +60,10 @@ def send_alert_email(current, prev_close, change_pct):
 
 
 def send_discord_alert(current, prev_close, change_pct):
+    arrow = "🔺" if change_pct > 0 else ("🔻" if change_pct < 0 else "➖")
     content = (
-        f"**[환율 알림] USD/KRW {change_pct:+.2f}% 변동**\n"
-        f"현재 환율: {current:.2f}원\n"
-        f"전일 종가: {prev_close:.2f}원"
+        f"**USD/KRW 현재가: {current:.2f}원** {arrow}\n"
+        f"전일 종가: {prev_close:.2f}원 | 변동률: {change_pct:+.2f}%"
     )
     response = requests.post(DISCORD_WEBHOOK_URL, json={"content": content})
     response.raise_for_status()
@@ -71,20 +71,28 @@ def send_discord_alert(current, prev_close, change_pct):
 
 
 def main():
+    # ===== 테스트 모드: 조건 없이 실행할 때마다 무조건 발송 =====
+    # 테스트 끝나면 아래 조건문 버전으로 되돌리세요.
     state = load_state()
     today_str = str(date.today())
 
     current, prev_close, change_pct = get_usdkrw()
     print(f"현재 {current:.2f}원 (전일대비 {change_pct:+.2f}%)")
 
-    if abs(change_pct) >= THRESHOLD_PERCENT and state.get("alerted_date") != today_str:
-        send_alert_email(current, prev_close, change_pct)
-        send_discord_alert(current, prev_close, change_pct)
-        state["alerted_date"] = today_str
-    else:
-        print("조건 미충족 또는 오늘 이미 발송함")
+    send_alert_email(current, prev_close, change_pct)
+    send_discord_alert(current, prev_close, change_pct)
+    state["alerted_date"] = today_str
 
     save_state(state)
+
+    # ===== 테스트 끝나면 아래로 교체 =====
+    # if abs(change_pct) >= THRESHOLD_PERCENT and state.get("alerted_date") != today_str:
+    #     send_alert_email(current, prev_close, change_pct)
+    #     send_discord_alert(current, prev_close, change_pct)
+    #     state["alerted_date"] = today_str
+    # else:
+    #     print("조건 미충족 또는 오늘 이미 발송함")
+    # save_state(state)
 
 
 if __name__ == "__main__":
