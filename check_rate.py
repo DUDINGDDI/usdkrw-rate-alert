@@ -24,8 +24,13 @@ def get_usdkrw():
 
 def load_state():
     if os.path.exists(STATE_FILE):
-        with open(STATE_FILE) as f:
-            return json.load(f)
+        try:
+            with open(STATE_FILE) as f:
+                content = f.read().strip()
+                if content:
+                    return json.loads(content)
+        except json.JSONDecodeError:
+            pass
     return {"alerted_date": None}
 
 
