@@ -1,6 +1,7 @@
 import os
 import json
 import smtplib
+import requests
 from email.mime.text import MIMEText
 from datetime import date
 import yfinance as yf
@@ -11,6 +12,7 @@ STATE_FILE = "last_rate.json"
 SENDER_EMAIL = os.environ["SENDER_EMAIL"]
 APP_PASSWORD = os.environ["APP_PASSWORD"]
 RECEIVER_EMAIL = os.environ["RECEIVER_EMAIL"]
+DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 
 
 def get_usdkrw():
@@ -57,6 +59,17 @@ def send_alert_email(current, prev_close, change_pct):
     print("메일 발송 완료")
 
 
+def send_discord_alert(current, prev_close, change_pct):
+    content = (
+        f"**[환율 알림] USD/KRW {change_pct:+.2f}% 변동**\n"
+        f"현재 환율: {current:.2f}원\n"
+        f"전일 종가: {prev_close:.2f}원"
+    )
+    response = requests.post(DISCORD_WEBHOOK_URL, json={"content": content})
+    response.raise_for_status()
+    print("디스코드 알림 발송 완료")
+
+
 def main():
     state = load_state()
     today_str = str(date.today())
@@ -66,6 +79,7 @@ def main():
 
     if abs(change_pct) >= THRESHOLD_PERCENT and state.get("alerted_date") != today_str:
         send_alert_email(current, prev_close, change_pct)
+        send_discord_alert(current, prev_close, change_pct)
         state["alerted_date"] = today_str
     else:
         print("조건 미충족 또는 오늘 이미 발송함")
